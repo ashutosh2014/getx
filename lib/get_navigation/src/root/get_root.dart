@@ -313,6 +313,7 @@ class GetRoot extends StatefulWidget {
 
 class GetRootState extends State<GetRoot> with WidgetsBindingObserver {
   static GetRootState? _controller;
+  static GetRootState? get maybeController => _controller;
   static GetRootState get controller {
     if (_controller == null) {
       throw Exception('GetRoot is not part of the tree');

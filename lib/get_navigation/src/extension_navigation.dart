@@ -839,13 +839,37 @@ extension GetNavigationExt on GetInterface {
       times = 1;
     }
 
+    // Snackbars, dialogs, and bottom sheets are Navigator overlays
+    // (PopupRoute), not GetPage history. GetX 5 Get.back() previously
+    // only called searchDelegate.back() when _activePages.length > 1,
+    // so overlays (and sheets on the root page) never closed.
+    if (times == 1 && isSnackbarOpen) {
+      closeCurrentSnackbar();
+      return;
+    }
+
     if (times > 1) {
       var count = 0;
       return searchDelegate(id).backUntil((route) => count++ == times);
     } else {
       if (canPop) {
-        if (searchDelegate(id).canBack == true) {
-          return searchDelegate(id).back<T>(result);
+        final delegate = searchDelegate(id);
+        final nav = delegate.navigatorKey.currentState;
+        if (nav != null) {
+          Route<dynamic>? currentRoute;
+          nav.popUntil((route) {
+            currentRoute = route;
+            return true;
+          });
+          if (currentRoute is PopupRoute) {
+            return nav.pop<T>(result);
+          }
+        }
+        if (delegate.canBack == true) {
+          return delegate.back<T>(result);
+        }
+        if (nav?.canPop() == true) {
+          return nav!.pop<T>(result);
         }
       } else {
         return searchDelegate(id).back<T>(result);
@@ -1261,12 +1285,15 @@ extension GetNavigationExt on GetInterface {
   bool get isOpaqueRouteDefault => defaultOpaqueRoute;
 
   /// give access to currentContext
-  BuildContext? get context => key.currentContext;
+  BuildContext? get context =>
+      GetRootState.maybeController?.key.currentContext;
 
   /// give access to current Overlay Context
   BuildContext? get overlayContext {
+    final nav = GetRootState.maybeController?.key.currentState;
+    if (nav == null) return null;
     BuildContext? overlay;
-    key.currentState?.overlay?.context.visitChildElements((element) {
+    nav.overlay?.context.visitChildElements((element) {
       overlay = element;
     });
     return overlay;
